@@ -1,0 +1,11 @@
+version: "3"
+services:
+  cavo:
+    image: danyloberk/lab45
+    ports:
+      - "80:80"
+  watchtower:
+    image: containrrr/watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --interval 20

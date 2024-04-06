@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - "main"
+  workflow_dispatch:
+
+jobs:
+  buildx:
+    runs-on: ubuntu-latest
+   
+    steps:
+
+    - uses: actions/checkout@v4
+    - name: Use Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+    - name: Install dependencies
+      run: npm install
+
+    - name: Lint code
+      run: npm run prettier:check
+
+    - name: Debug Secrets
+      run: |
+        echo "DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}"
+        echo "DOCKER_PASSWORD length: ${#DOCKER_PASSWORD}"
+
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Login to Docker Hub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    - name: Build Docker image
+      run: docker build -t danyloberk/lab45:latest .
+
+    - name: Push Docker image
+      run: docker push danyloberk/lab45:latest
+
+    - name: Configure AWS Credentials for infrastructure setup
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: eu-north-1
+
+    - name: Setup Terraform CLI
+      uses: hashicorp/setup-terraform@v2.0.2
+
+    - name: Terraform init and validate
+      run: |
+        echo `pwd`
+        echo "tfpath ${{ github.event.inputs.tfpath }}"
+        echo "** Running Terraform Init**"
+        terraform init
+        echo "** Running Terraform Validate**"
+        terraform validate
+      working-directory: ${{ github.event.inputs.tfpath }}
+
+    - name: Terraform plan and apply
+      run: |
+        echo `pwd`
+        echo "tfpath ${{ github.event.inputs.tfpath }}"        
+        echo "** Running Terraform Plan**"
+        terraform plan
+        
+        echo "** Running Terraform Apply**"
+        terraform apply -auto-approve
+      working-directory: ${{ github.event.inputs.tfpath }}
